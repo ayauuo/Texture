@@ -252,7 +252,19 @@ type DragState = {
   offsetY: number
 } | null
 
+type PinchState = {
+  id: string
+  initialDistance: number
+  initialScale: number
+} | null
+
 const draggingSticker = ref<DragState>(null)
+const pinchingSticker = ref<PinchState>(null)
+
+/** 觸控雙擊刪除：記錄上次點擊時間與貼圖 ID */
+let lastTapTime = 0
+let lastTapStickerId: string | null = null
+let didMoveDuringTouch = false
 
 function onAddSticker(option: { imageUrl: string }) {
   // 加在「目前選中的那一格」中央
@@ -315,6 +327,112 @@ function onStickerWheel(id: string, e: WheelEvent) {
   const factor = e.deltaY > 0 ? 0.9 : 1.1
   const nextScale = st.scale * factor
   updateSticker(currentSlotIndex.value, id, { scale: nextScale })
+}
+
+/** 觸控：兩指距離 */
+function getTouchDistance(touches: TouchList): number {
+  const t0 = touches[0]
+  const t1 = touches[1]
+  if (!t0 || !t1) return 0
+  const dx = t1.clientX - t0.clientX
+  const dy = t1.clientY - t0.clientY
+  return Math.hypot(dx, dy)
+}
+
+function onStickerTouchStart(id: string, e: TouchEvent) {
+  if (!showFilterOptions.value) return
+  const area = pictureAreaRef.value
+  if (!area) return
+  const rect = area.getBoundingClientRect()
+  const st = stickersForCurrentSlot.value.find((s: { id: string }) => s.id === id)
+  if (!st) return
+
+  if (e.touches.length === 2) {
+    // 雙指：開始縮放手勢
+    draggingSticker.value = null
+    pinchingSticker.value = {
+      id,
+      initialDistance: getTouchDistance(e.touches),
+      initialScale: st.scale,
+    }
+    window.addEventListener('touchmove', onStickerTouchMove, { capture: true, passive: false })
+    window.addEventListener('touchend', onStickerTouchEnd, true)
+    window.addEventListener('touchcancel', onStickerTouchEnd, true)
+  } else if (e.touches.length === 1) {
+    // 單指：開始拖曳（或可能是雙擊刪除的第一次點擊）
+    const t0 = e.touches[0]
+    if (!t0) return
+    pinchingSticker.value = null
+    didMoveDuringTouch = false
+    const centerX = rect.left + st.x * rect.width
+    const centerY = rect.top + st.y * rect.height
+    draggingSticker.value = {
+      id,
+      offsetX: t0.clientX - centerX,
+      offsetY: t0.clientY - centerY,
+    }
+    window.addEventListener('touchmove', onStickerTouchMove, { capture: true, passive: false })
+    window.addEventListener('touchend', onStickerTouchEnd, true)
+    window.addEventListener('touchcancel', onStickerTouchEnd, true)
+  }
+}
+
+function onStickerTouchMove(e: TouchEvent) {
+  if (e.touches.length === 0) return
+  const area = pictureAreaRef.value
+  if (!area) return
+  const rect = area.getBoundingClientRect()
+
+  if (pinchingSticker.value && e.touches.length >= 2) {
+    const pinch = pinchingSticker.value
+    const dist = getTouchDistance(e.touches)
+    if (dist > 0) {
+      let scale = (pinch.initialScale * dist) / pinch.initialDistance
+      scale = Math.max(0.3, Math.min(3, scale))
+      updateSticker(currentSlotIndex.value, pinch.id, { scale })
+    }
+    e.preventDefault()
+    return
+  }
+
+  if (draggingSticker.value && e.touches.length === 1) {
+    didMoveDuringTouch = true
+    const t0 = e.touches[0]
+    if (!t0) return
+    const drag = draggingSticker.value
+    let centerX = t0.clientX - drag.offsetX
+    let centerY = t0.clientY - drag.offsetY
+    centerX = Math.max(rect.left, Math.min(rect.right, centerX))
+    centerY = Math.max(rect.top, Math.min(rect.bottom, centerY))
+    const x = (centerX - rect.left) / rect.width
+    const y = (centerY - rect.top) / rect.height
+    updateSticker(currentSlotIndex.value, drag.id, { x, y })
+    e.preventDefault()
+  }
+}
+
+function onStickerTouchEnd(e: TouchEvent) {
+  if (e.touches.length < 2) pinchingSticker.value = null
+  if (e.touches.length === 0) {
+    const wasDragging = draggingSticker.value
+    const tappedId = wasDragging?.id ?? null
+    draggingSticker.value = null
+    window.removeEventListener('touchmove', onStickerTouchMove, true)
+    window.removeEventListener('touchend', onStickerTouchEnd, true)
+    window.removeEventListener('touchcancel', onStickerTouchEnd, true)
+    // 觸控雙擊刪除：若為輕觸（未拖曳）且與上次點擊同一貼圖、間隔 < 400ms，則刪除
+    if (tappedId && !didMoveDuringTouch && !pinchingSticker.value) {
+      const now = Date.now()
+      if (lastTapStickerId === tappedId && now - lastTapTime < 400) {
+        onStickerRemove(tappedId)
+        lastTapStickerId = null
+        lastTapTime = 0
+        return
+      }
+      lastTapStickerId = tappedId
+      lastTapTime = now
+    }
+  }
 }
 
 function onStickerRemove(id: string) {
@@ -889,6 +1007,9 @@ onUnmounted(() => {
   }
   window.removeEventListener('mousemove', onStickerMouseMove, true)
   window.removeEventListener('mouseup', onStickerMouseUp, true)
+  window.removeEventListener('touchmove', onStickerTouchMove, true)
+  window.removeEventListener('touchend', onStickerTouchEnd, true)
+  window.removeEventListener('touchcancel', onStickerTouchEnd, true)
 })
 
 /** 直接進入濾鏡區測試用：無相機時使用的預設預覽圖（可被 VITE_TEST_FILTER_IMAGE 覆寫） */
@@ -1171,6 +1292,7 @@ watch(
                 class="sticker-instance"
                 :style="getStickerStyle(sticker)"
                 @mousedown.prevent.stop="onStickerMouseDown(sticker.id, $event)"
+                @touchstart.prevent.stop="onStickerTouchStart(sticker.id, $event)"
                 @wheel.prevent.stop="onStickerWheel(sticker.id, $event)"
                 @dblclick.stop="onStickerRemove(sticker.id)"
               >
@@ -1196,7 +1318,7 @@ watch(
             </div>
             <p class="sticker-panel__hint">
               貼圖會貼在「目前選中的那張」照片上，<br />
-              可拖曳、滾輪放大／縮小，雙擊刪除。
+              可拖曳、滾輪／雙指縮放，雙擊或連點兩下刪除。
             </p>
           </div>
         </div>
@@ -1571,6 +1693,7 @@ watch(
       pointer-events: auto;
       cursor: grab;
       transform-origin: center center;
+      touch-action: none; /* 觸控時不捲動，讓拖曳與縮放手勢生效 */
 
       img {
         display: block;
