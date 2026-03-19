@@ -107,6 +107,12 @@ function getForceWithoutAf(): boolean {
   return v === '1' || String(v).toLowerCase() === 'true'
 }
 
+/** 貼圖功能開關：1 或 true 時啟用貼圖，0 或 false 時隱藏貼圖選項 */
+function isStickerEnabled(): boolean {
+  const v = import.meta.env.VITE_STICKER_ENABLED
+  return v === '1' || String(v).toLowerCase() === 'true'
+}
+
 /** 只半按模式：進入拍照頁只對焦不自動倒數，需手動點「開始倒數拍照」才會倒數與拍照 */
 const onlyHalfPressMode = computed(
   () =>
@@ -239,11 +245,23 @@ const filterPreviewCanvasRef = ref<HTMLCanvasElement | null>(null)
 /** 非濾鏡模式時的主預覽 img */
 const mainPreviewImgRef = ref<HTMLImageElement | null>(null)
 
-/** 右側可選貼圖清單（之後可再擴充） */
+/** 右側可選貼圖清單（Texture 資料夾 1.png～10.png） */
 const stickerOptions = [
   { id: 'texture-1', label: '貼圖 1', imageUrl: '/assets/templates/Texture/1.png' },
   { id: 'texture-2', label: '貼圖 2', imageUrl: '/assets/templates/Texture/2.png' },
   { id: 'texture-3', label: '貼圖 3', imageUrl: '/assets/templates/Texture/3.png' },
+  { id: 'texture-4', label: '貼圖 4', imageUrl: '/assets/templates/Texture/4.png' },
+  { id: 'texture-5', label: '貼圖 5', imageUrl: '/assets/templates/Texture/5.png' },
+  { id: 'texture-6', label: '貼圖 6', imageUrl: '/assets/templates/Texture/6.png' },
+  { id: 'texture-7', label: '貼圖 7', imageUrl: '/assets/templates/Texture/7.png' },
+  { id: 'texture-8', label: '貼圖 8', imageUrl: '/assets/templates/Texture/8.png' },
+  { id: 'texture-9', label: '貼圖 9', imageUrl: '/assets/templates/Texture/9.png' },
+  { id: 'texture-10', label: '貼圖 10', imageUrl: '/assets/templates/Texture/10.png' },
+  { id: 'texture-10', label: '貼圖 11', imageUrl: '/assets/templates/Texture/11.png' },
+  { id: 'texture-10', label: '貼圖 12', imageUrl: '/assets/templates/Texture/12.png' },
+  { id: 'texture-10', label: '貼圖 13', imageUrl: '/assets/templates/Texture/13.png' },
+  { id: 'texture-10', label: '貼圖 14', imageUrl: '/assets/templates/Texture/14.png' },
+  { id: 'texture-10', label: '貼圖 15', imageUrl: '/assets/templates/Texture/15.png' },
 ]
 
 type DragState = {
@@ -1203,7 +1221,7 @@ watch(
         </div>
       </div>
       <div class="right-panel">
-        <h1>{{ showFilterOptions ? '選擇濾鏡與貼圖' : '請看上方鏡頭' }}</h1>
+        <h1>{{ showFilterOptions ? (isStickerEnabled() ? '選擇濾鏡與貼圖' : '選擇濾鏡') : '請看上方鏡頭' }}</h1>
         <!-- 濾鏡／貼圖頁 1 分鐘倒數，時間到自動進入下一步 -->
         <div
           v-show="showFilterOptions && tp.shootingDone.value && !isReshooting"
@@ -1281,9 +1299,9 @@ watch(
               :src="mainPreviewUrl"
               alt="預覽"
             />
-            <!-- 使用者貼圖圖層：可拖曳與滾輪縮放 -->
+            <!-- 使用者貼圖圖層：可拖曳與滾輪縮放（依 VITE_STICKER_ENABLED 開關） -->
             <div
-              v-show="showFilterOptions && tp.shootingDone.value && !isReshooting"
+              v-show="showFilterOptions && tp.shootingDone.value && !isReshooting && isStickerEnabled()"
               class="stickers-layer"
             >
               <div
@@ -1301,20 +1319,22 @@ watch(
             </div>
           </div>
           <div
-            v-if="showFilterOptions"
+            v-if="showFilterOptions && isStickerEnabled()"
             class="sticker-panel"
           >
             <p class="sticker-panel__title">選擇貼圖</p>
-            <div
-              v-for="option in stickerOptions"
-              :key="option.id"
-              class="sticker-option"
-              role="button"
-              tabindex="0"
-              @click="onAddSticker(option)"
-              @keydown.enter.prevent="onAddSticker(option)"
-            >
-              <img :src="option.imageUrl" :alt="option.label" />
+            <div class="sticker-panel__options">
+              <div
+                v-for="option in stickerOptions"
+                :key="option.id"
+                class="sticker-option"
+                role="button"
+                tabindex="0"
+                @click="onAddSticker(option)"
+                @keydown.enter.prevent="onAddSticker(option)"
+              >
+                <img :src="option.imageUrl" :alt="option.label" />
+              </div>
             </div>
             <p class="sticker-panel__hint">
               貼圖會貼在「目前選中的那張」照片上，<br />
@@ -1711,12 +1731,12 @@ watch(
 
   .sticker-panel {
     width: 180px;
-    max-height: 100%;
+    flex-shrink: 0;
     padding-top: 40px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    overflow-y: auto;
+    min-height: 0;
 
     .sticker-panel__title {
       margin: 0 0 8px;
@@ -1724,26 +1744,52 @@ watch(
       font-weight: bold;
       text-align: center;
       color: #333;
+      flex-shrink: 0;
     }
 
-    .sticker-option {
-      border-radius: 16px;
-      background: rgba(255, 255, 255, 0.85);
-      padding: 8px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
-      cursor: pointer;
-      transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+    /* 貼圖選項可滑動捲動，超出畫面時可上下滑動 */
+    .sticker-panel__options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      max-height: min(50vh, 400px);
+      min-height: 0;
+      padding-right: 4px;
+      -webkit-overflow-scrolling: touch;
 
-      img {
-        display: block;
-        width: 100%;
-        height: auto;
-        object-fit: contain;
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 3px;
+      }
+      &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
       }
 
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+      .sticker-option {
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.85);
+        padding: 8px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+        cursor: pointer;
+        transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+        flex-shrink: 0;
+
+        img {
+          display: block;
+          width: 100%;
+          height: auto;
+          object-fit: contain;
+        }
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+        }
       }
     }
 

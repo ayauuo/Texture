@@ -490,12 +490,15 @@ export function usePhotobooth() {
       //   // 無貼圖檔案時略過，不影響主流程
       // }
 
-      // 使用者貼圖畫在外框「之上」、與預覽相同座標（格內 0～1），所見即所得
+      // 使用者貼圖畫在外框「之上」、與預覽相同座標（格內 0～1），所見即所得（依 VITE_STICKER_ENABLED 開關）
+      const isStickerEnabled =
+        import.meta.env.VITE_STICKER_ENABLED === '1' ||
+        String(import.meta.env.VITE_STICKER_ENABLED ?? '').toLowerCase() === 'true'
       const SLOT_STICKER_WIDTH_RATIO = 0.2
       for (let i = 0; i < synthesisSlots.length; i++) {
         const slot = synthesisSlots[i]
         if (!slot) continue
-        const slotStickers = stickersBySlot.value[i] ?? []
+        const slotStickers = isStickerEnabled ? (stickersBySlot.value[i] ?? []) : []
         for (const st of slotStickers) {
           try {
             const stImg = await loadImg(st.imageUrl)
