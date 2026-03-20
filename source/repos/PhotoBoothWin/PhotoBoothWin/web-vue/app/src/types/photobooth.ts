@@ -49,6 +49,7 @@ export type ScreenName =
   | 'template'
   | 'shoot'
   | 'result'
+  | 'result-no-qr'
   | 'uploading'
   | 'processing'
   | 'camera-test'

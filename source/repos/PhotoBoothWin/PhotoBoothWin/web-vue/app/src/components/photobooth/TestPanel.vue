@@ -77,7 +77,7 @@ function goTo(id: ScreenName) {
     selectTemplate(templates.value[getDefaultTemplateIndex()] ?? null)
   }
   // 測試相關畫面：從測試面板進入時一律標記為測試流程（含 template，選版型後進拍照也會維持測試）
-  if (id === 'template' || id === 'shoot' || id === 'camera-test' || id === 'test-filter' || id === 'result' || id === 'uploading' || id === 'processing') {
+  if (id === 'template' || id === 'shoot' || id === 'camera-test' || id === 'test-filter' || id === 'result' || id === 'result-no-qr' || id === 'uploading' || id === 'processing') {
     setTestSession(true)
   }
   // #region agent log
@@ -188,7 +188,14 @@ onUnmounted(() => {
         class="btn primary"
         @click="() => { setResultMock(); goTo('result'); }"
       >
-        測試：結果畫面
+        測試：結果畫面（QR）
+      </button>
+      <button
+        type="button"
+        class="btn primary"
+        @click="() => { setResultMock(); goTo('result-no-qr'); }"
+      >
+        測試：結果畫面（無 QR）
       </button>
       <button type="button" class="btn primary" @click="goTo('uploading')">
         測試：照片上傳中畫面

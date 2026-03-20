@@ -6,6 +6,7 @@ import ScreenIdle from '@/components/photobooth/ScreenIdle.vue'
 import ScreenTemplate from '@/components/photobooth/ScreenTemplate.vue'
 import ScreenShoot from '@/components/photobooth/shoot/ScreenShoot.vue'
 import ScreenResult from '@/components/photobooth/ScreenResult.vue'
+import ScreenResultNoQr from '@/components/photobooth/ScreenResultNoQr.vue'
 import ScreenUploading from '@/components/photobooth/ScreenUploading.vue'
 import ScreenProcessing from '@/components/photobooth/ScreenProcessing.vue'
 import TestPanel from '@/components/photobooth/TestPanel.vue'
@@ -235,6 +236,7 @@ onUnmounted(() => {
       :is-active="currentScreen === 'shoot'"
     />
     <ScreenResult :class="{ active: currentScreen === 'result' }" />
+    <ScreenResultNoQr :class="{ active: currentScreen === 'result-no-qr' }" />
     <ScreenUploading :class="{ active: currentScreen === 'uploading' }" />
     <ScreenProcessing :class="{ active: currentScreen === 'processing' }" />
     <LoadingOverlay />

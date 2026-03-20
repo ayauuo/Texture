@@ -593,7 +593,7 @@ export function usePhotobooth() {
           .catch(() => { qrImageUrl.value = '' })
       }
 
-      showScreen('result')
+      showScreen(showQrCode.value ? 'result' : 'result-no-qr')
 
       const isTestMode = (v: string | undefined) => v === '1' || String(v).toLowerCase() === 'true'
       if (!isTestMode(import.meta.env.VITE_TEST_FAST_COUNTDOWN) && isTestMode(import.meta.env.VITE_LOG_USAGE)) {

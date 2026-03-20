@@ -114,7 +114,16 @@ Region=ap-northeast-1
 | 下載頁 | `web-vue/app/download-page/` |
 | 上傳 API | `web-vue/app/api/upload.php` |
 
-## 八、尚未實作（可選）
+## 八、無 QR 結果頁（VITE_QRCODE_ENABLED=0）
+
+當 `VITE_QRCODE_ENABLED=0` 或 `false` 時，合成完成後會進入 `result-no-qr` 畫面（`ScreenResultNoQr.vue`），使用 `NoQRcodePage` 素材：
+
+- 路徑：`public/assets/templates/NoQRcodePage/`
+- 素材：`bk01.png`～`bk04.png`、`cancelbutton.png`、`printbutton.png`
+- 背景：`background.png`（若無則顯示背景色；可從 `QRcodePage` 複製）
+
+畫面含「取消」與「列印」按鈕，無 QR code、不上傳。
+
+## 九、尚未實作（可選）
 
 - **VITE_OFFLINE_MODE**：離線模式時略過上傳與 QR，需在 `buildFinalOutput()` 內加入判斷
-- **showQrCode 條件**：若需依條件隱藏 QR（例如離線），需在 `usePhotobooth` 新增 `showQrCode` 並在 `ScreenResult.vue` 加 `v-if`
