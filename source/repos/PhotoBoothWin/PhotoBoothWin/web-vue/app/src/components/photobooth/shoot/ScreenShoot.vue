@@ -1221,16 +1221,22 @@ watch(
         </div>
       </div>
       <div class="right-panel">
-        <h1>{{ showFilterOptions ? (isStickerEnabled() ? '選擇濾鏡與貼圖' : '選擇濾鏡') : '請看上方鏡頭' }}</h1>
-        <!-- 濾鏡／貼圖頁 1 分鐘倒數，時間到自動進入下一步 -->
-        <div
-          v-show="showFilterOptions && tp.shootingDone.value && !isReshooting"
-          class="filter-countdown"
-          aria-label="剩餘時間"
-        >
-          {{ filterCountdownSeconds }}
-        </div>
-        <div class="picture-and-stickers">
+        <div class="title-and-picture-column">
+          <div class="title-align-wrap">
+            <div class="title-align-inner">
+              <h1>{{ showFilterOptions ? (isStickerEnabled() ? '選擇濾鏡與貼圖' : '選擇濾鏡') : '請看上方鏡頭' }}</h1>
+            </div>
+            <div v-if="showFilterOptions && isStickerEnabled()" class="title-align-spacer" />
+          </div>
+          <!-- 濾鏡／貼圖頁 1 分鐘倒數，時間到自動進入下一步 -->
+          <div
+            v-show="showFilterOptions && tp.shootingDone.value && !isReshooting"
+            class="filter-countdown"
+            aria-label="剩餘時間"
+          >
+            {{ filterCountdownSeconds }}
+          </div>
+          <div class="picture-and-stickers">
           <div
             ref="pictureAreaRef"
             class="picture-area"
@@ -1341,6 +1347,7 @@ watch(
               可拖曳、滾輪／雙指縮放，雙擊或連點兩下刪除。
             </p>
           </div>
+        </div>
         </div>
         <div
           class="btns shoot-btns"
@@ -1549,11 +1556,31 @@ watch(
     gap: 12px;
     min-width: 0;
 
+    .title-align-wrap {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .title-align-inner {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .title-align-spacer {
+      width: 180px;
+      flex-shrink: 0;
+    }
+
     h1 {
       font-size: 72px;
       text-align: center;
-      padding: 0px;
-      margin: 0px;
+      padding: 0;
+      margin: 0;
     }
   }
 
@@ -1562,6 +1589,15 @@ watch(
     align-items: flex-start;
     gap: 24px;
     width: 100%;
+  }
+
+  /* 標題與預覽共用同一寬度，確保對齊預覽框中心 */
+  .title-and-picture-column {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: fit-content;
+    position: relative;
   }
 
   .screen-shoot-content.is-filter-mode .right-panel {

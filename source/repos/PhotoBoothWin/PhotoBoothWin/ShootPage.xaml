@@ -87,13 +87,18 @@
             <!-- 底部按鈕 -->
         </Grid.RowDefinitions>
 
-        <!-- 上方提示文字 -->
-        <TextBlock Grid.Column="2" Grid.Row="0"
-                   Text="請看上方鏡頭"
-                   FontSize="56" FontWeight="Bold"
-                   Foreground="#444"
-                   HorizontalAlignment="Center"
-                   Margin="0,0,0,10"/>
+        <!-- 上方提示文字：對齊下方預覽框的正中間 -->
+        <Grid Grid.Column="2" Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="1"
+                       Text="請看上方鏡頭"
+                       FontSize="56" FontWeight="Bold"
+                       Foreground="#444"
+                       HorizontalAlignment="Center"/>
+        </Grid>
 
         <!-- 左：濾鏡區（拍攝/預覽階段先隱藏，下一步才顯示） -->
         <StackPanel Grid.Column="0" Grid.Row="1"
