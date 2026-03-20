@@ -15,6 +15,10 @@ interface ImportMetaEnv {
   readonly VITE_UPLOAD_URL?: string
   /** 掃描 QR 後顯示相片／影片下載頁的基底網址（不含查詢參數） */
   readonly VITE_DOWNLOAD_PAGE_BASE_URL?: string
+  /** 離線模式：1/true 時不上傳、不產生 QR code（需在 buildFinalOutput 內實作） */
+  readonly VITE_OFFLINE_MODE?: string
+  /** 結果頁是否顯示 QR code：1/true 時顯示；0/false 時隱藏，預設 1 */
+  readonly VITE_QRCODE_ENABLED?: string
   /** 合成用座標：每格「寬,高,x,y」逗號串接，與版型張數一致。例：VITE_BK01_SYNTHESIS=544,471,43,244,... */
   readonly VITE_BK01_SYNTHESIS?: string
   readonly VITE_BK02_SYNTHESIS?: string
@@ -56,4 +60,8 @@ interface ImportMetaEnv {
   readonly VITE_SHOOT_ONLY_HALF_PRESS?: string
   /** 強制拍攝不等待對焦：1/true 時到時機就拍，不管有無對焦成功 */
   readonly VITE_FORCE_CAPTURE_WITHOUT_AF?: string
+  /** 紙鈔機開關：1/true 時啟用；0/false 時不啟動（與投幣器皆關閉時，點擊螢幕即可進入選版型） */
+  readonly VITE_BILL_ACCEPTOR_ENABLED?: string
+  /** 投幣器開關：1/true 時啟用；0/false 時不啟動 */
+  readonly VITE_COIN_ACCEPTOR_ENABLED?: string
 }

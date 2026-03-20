@@ -19,6 +19,18 @@ const photobooth = usePhotobooth()
 const { currentScreen, showScreen, runDevStartPage, buildFinalOutput, selectTemplate, templates, callHost } = photobooth
 const { setHostLiveViewDataUrl, liveViewFrameCount } = useLiveView()
 
+/** 紙鈔機／投幣器開關（來自 .env） */
+const isBillAcceptorEnabled = () => {
+  const v = import.meta.env.VITE_BILL_ACCEPTOR_ENABLED
+  return v === '1' || String(v ?? '').toLowerCase() === 'true'
+}
+const isCoinAcceptorEnabled = () => {
+  const v = import.meta.env.VITE_COIN_ACCEPTOR_ENABLED
+  return v === '1' || String(v ?? '').toLowerCase() === 'true'
+}
+/** 是否啟用任一收款方式；皆關閉時可點擊螢幕進入選版型 */
+const isPaymentsEnabled = () => isBillAcceptorEnabled() || isCoinAcceptorEnabled()
+
 /** 已付金額累積：紙鈔只收 100 元；投幣器被動、可累積超過 100（例如 200），滿 100 扣一次進選版型，回到待機後餘額若仍 >= 100 再進選版型一次 */
 const paidAccumulated = ref(0)
 
@@ -173,6 +185,16 @@ onMounted(() => {
 
   runDevStartPage()
 
+  // 通知 C# 紙鈔機／投幣器開關，讓 C# 依此決定是否啟動
+  const webview = win.chrome?.webview as { postMessage?: (s: string) => void } | undefined
+  if (webview?.postMessage) {
+    webview.postMessage(JSON.stringify({
+      '@event': 'payments_config',
+      billAcceptorEnabled: isBillAcceptorEnabled(),
+      coinAcceptorEnabled: isCoinAcceptorEnabled(),
+    }))
+  }
+
   scheduledUploadCheckTimer = setInterval(checkScheduledUploadTime, 60 * 1000)
   checkScheduledUploadTime()
 })
@@ -187,7 +209,11 @@ onUnmounted(() => {
 
 <template>
   <div id="app" class="photobooth-app">
-    <ScreenIdle :class="{ active: currentScreen === 'idle' }" />
+    <ScreenIdle
+      :class="{ active: currentScreen === 'idle' }"
+      :is-payments-enabled="isPaymentsEnabled()"
+      @click-to-start="showScreen('template')"
+    />
     <CameraTestPage
       v-if="currentScreen === 'camera-test'"
       @close="showScreen('idle')"

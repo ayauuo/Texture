@@ -9,6 +9,7 @@ const {
   resultDisplayUrl,
   qrDisplayUrl,
   qrDisplayText,
+  showQrCode,
   selectedTemplate,
   showScreen,
   callHost,
@@ -205,28 +206,18 @@ async function onPrint() {
       <div class="result-preview">
         <img id="final-preview" alt="final preview" :src="resultDisplayUrl" />
       </div>
-      <div class="right-panel">
-        <h2 class="qr-title">掃描QRcode儲存照片</h2>
-      <div class="qr-panel">
-
-        <div class="qr-frame">
-          <img id="qr-image" alt="qr code" :src="qrDisplayUrl" />
-          <!-- <p class="qr-text">{{ qrDisplayText }}</p> -->
-        </div>
-        <div class="print-section">
-          <div class="input-row">
-            <!-- <label for="copies">列印數量</label>
-            <input
-              id="copies"
-              v-model.number="copies"
-              type="number"
-              min="1"
-              max="5"
-            /> -->
+      <div class="right-panel" :class="{ 'right-panel--no-qr': !showQrCode }">
+        <template v-if="showQrCode">
+          <h2 class="qr-title">掃描QRcode儲存照片</h2>
+          <div class="qr-panel">
+            <div class="qr-frame">
+              <img id="qr-image" alt="qr code" :src="qrDisplayUrl" />
+            </div>
+            <div class="print-section">
+              <div class="input-row"></div>
+            </div>
           </div>
-
-        </div>
-      </div>
+        </template>
       <div class="btns">
         <!-- 未來可加 print-btn--pulse 做跳動動畫 -->
         <button type="button" class="print-btn" @click="onPrint">
@@ -287,10 +278,15 @@ async function onPrint() {
 .right-panel {
   width: 50%;
   padding-top: 0px;
-  // background-color: black;
-  h2{
+  display: flex;
+  flex-direction: column;
+  h2 {
     font-size: 40px;
     letter-spacing: 4px;
+  }
+  &--no-qr {
+    justify-content: center;
+    align-items: center;
   }
 }
 .qr-panel {

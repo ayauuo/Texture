@@ -115,6 +115,28 @@ namespace PhotoBoothWin
                                     return;
                                 }
                             }
+                            if (eventName == "payments_config")
+                            {
+                                bool billEnabled = true;
+                                bool coinEnabled = true;
+                                if (jsonDoc.RootElement.TryGetProperty("billAcceptorEnabled", out var billProp))
+                                    billEnabled = billProp.GetBoolean();
+                                if (jsonDoc.RootElement.TryGetProperty("coinAcceptorEnabled", out var coinProp))
+                                    coinEnabled = coinProp.GetBoolean();
+                                System.Diagnostics.Debug.WriteLine($"✓ 收到 payments_config：紙鈔機={billEnabled}, 投幣器={coinEnabled}");
+                                _ = Task.Run(async () =>
+                                {
+                                    await Task.Delay(5000);
+                                    Dispatcher.Invoke(() =>
+                                    {
+                                        if (coinEnabled) StartCoinAcceptor();
+                                        if (billEnabled) StartBillAcceptor();
+                                        if (!billEnabled && !coinEnabled)
+                                            System.Diagnostics.Debug.WriteLine("紙鈔機與投幣器皆已關閉，點擊螢幕即可進入選版型");
+                                    });
+                                });
+                                return;
+                            }
                         }
                     }
                     catch
@@ -140,26 +162,10 @@ namespace PhotoBoothWin
                 BoothBridge.ReturnToWebViewRequested = () => Dispatcher.Invoke(HideWpfShoot);
                 BoothBridge.ReturnToWebAndStartSynthesisRequested = () => Dispatcher.Invoke(ReturnToWebAndStartSynthesis);
 
-                // 等待 WebView 完全加載後再啟動 RS232 監聽
+                // WebView 加載完成；紙鈔機／投幣器由 Vue 發送 payments_config 後依 .env 開關啟動
                 Web.CoreWebView2.DOMContentLoaded += (s, e) =>
                 {
-                    System.Diagnostics.Debug.WriteLine("✓ WebView DOM 已加載完成");
-                    
-                    // 延遲啟動 RS232 紙鈔機監聽
-                    // 注意：RS232-ICT004.exe 會保持運行，所以我們無法直接使用串口
-                    // 如果 RS232-ICT004.exe 占用串口，我們的程式將無法打開串口
-                    // 可能需要通過其他方式（如文件監控、網路通訊等）來獲取紙鈔機訊號
-                    Task.Run(async () =>
-                    {
-                        // 等待 RS232-ICT004.exe 完成設定
-                        await Task.Delay(5000);
-                        Dispatcher.Invoke(() =>
-                        {
-                            // 先啟動投幣器（COM8），再啟動紙鈔機（避開 COM8），避免搶埠
-                            StartCoinAcceptor(); // Arduino 投幣器 COM8，PULSES=數字 → 金額
-                            StartBillAcceptor();
-                        });
-                    });
+                    System.Diagnostics.Debug.WriteLine("✓ WebView DOM 已加載完成（等待 Vue 發送 payments_config）");
                 };
             };
         }

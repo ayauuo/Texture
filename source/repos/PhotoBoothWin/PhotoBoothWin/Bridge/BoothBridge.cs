@@ -1,3 +1,6 @@
+using Amazon;
+using Amazon.S3;
+using Amazon.S3.Model;
 using PhotoBoothWin.Models;
 using PhotoBoothWin.Services;
 using System;
@@ -499,16 +502,11 @@ namespace PhotoBoothWin.Bridge
 
                     case "upload_file":
                         {
-                            // 從本機已存好的檔案上傳，不再從 Vue 傳 base64，減少轉圈時間
+                            // 從本機已存好的檔案上傳：優先使用 S3（若有 s3_config.txt），否則走 PHP API
                             var filePath = req.data.TryGetProperty("filePath", out var fpEl) ? fpEl.GetString() ?? "" : "";
                             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
                                 return RespFail(req.id, "upload_file 缺少有效 filePath");
-                            var ext = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
-                            var mime = ext switch { "png" => "image/png", "gif" => "image/gif", _ => "image/jpeg" };
-                            var bytes = await File.ReadAllBytesAsync(filePath).ConfigureAwait(false);
-                            var base64 = Convert.ToBase64String(bytes);
-                            var imageData = $"data:{mime};base64,{base64}";
-                            var (url, _, err) = await UploadToServerAsync(new { imageData }).ConfigureAwait(false);
+                            var (url, err) = await UploadFileAsync(filePath).ConfigureAwait(false);
                             if (err != null) return RespFail(req.id, err);
                             return Ok(req.id, new { url = url ?? "" });
                         }
@@ -721,6 +719,96 @@ namespace PhotoBoothWin.Bridge
             if (!data.TryGetProperty(name, out var el)) return false;
             value = el.GetString() ?? "";
             return true;
+        }
+
+        /// <summary>上傳檔案：若有 s3_config.txt 則上傳到 S3，否則走 PHP API。</summary>
+        private static async Task<(string? url, string? error)> UploadFileAsync(string filePath)
+        {
+            var s3Config = LoadS3Config();
+            if (s3Config != null)
+            {
+                var (url, err) = await UploadToS3Async(filePath, s3Config.Value).ConfigureAwait(false);
+                if (err == null) return (url, null);
+                System.Diagnostics.Debug.WriteLine($"[BoothBridge] S3 上傳失敗，改走 PHP API: {err}");
+            }
+            var ext = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
+            var mime = ext switch { "png" => "image/png", "gif" => "image/gif", _ => "image/jpeg" };
+            var bytes = await File.ReadAllBytesAsync(filePath).ConfigureAwait(false);
+            var base64 = Convert.ToBase64String(bytes);
+            var imageData = $"data:{mime};base64,{base64}";
+            var (phpUrl, _, phpErr) = await UploadToServerAsync(new { imageData }).ConfigureAwait(false);
+            return (phpUrl, phpErr);
+        }
+
+        private static (string AccessKey, string SecretKey, string Bucket, string Region)? LoadS3Config()
+        {
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var paths = new[]
+            {
+                Path.Combine(baseDir, "s3_config.txt"),
+                Path.Combine(baseDir, "..", "s3_config.txt"),
+                Path.Combine(baseDir, "..", "..", "..", "..", "s3_config.txt"),
+                Path.Combine(baseDir, "..", "..", "..", "..", "..", "s3_config.txt"),
+            };
+            foreach (var p in paths)
+            {
+                var full = Path.GetFullPath(p);
+                if (!File.Exists(full)) continue;
+                try
+                {
+                    var text = File.ReadAllText(full);
+                    var lines = text.Split('\n', '\r');
+                    string? accessKey = null, secretKey = null, bucket = null, region = "ap-northeast-1";
+                    foreach (var line in lines)
+                    {
+                        var t = line.Trim();
+                        if (t.StartsWith("#") || string.IsNullOrEmpty(t)) continue;
+                        var eq = t.IndexOf('=');
+                        if (eq <= 0) continue;
+                        var key = t[..eq].Trim();
+                        var val = t[(eq + 1)..].Trim();
+                        if (key.Equals("AccessKey", StringComparison.OrdinalIgnoreCase)) accessKey = val;
+                        else if (key.Equals("SecretKey", StringComparison.OrdinalIgnoreCase)) secretKey = val;
+                        else if (key.Equals("Bucket", StringComparison.OrdinalIgnoreCase)) bucket = val;
+                        else if (key.Equals("Region", StringComparison.OrdinalIgnoreCase)) region = val;
+                    }
+                    if (!string.IsNullOrWhiteSpace(accessKey) && !string.IsNullOrWhiteSpace(secretKey) && !string.IsNullOrWhiteSpace(bucket))
+                        return (accessKey, secretKey, bucket, region ?? "ap-northeast-1");
+                }
+                catch { /* 略過 */ }
+            }
+            return null;
+        }
+
+        private static async Task<(string? url, string? error)> UploadToS3Async(string filePath, (string AccessKey, string SecretKey, string Bucket, string Region) config)
+        {
+            try
+            {
+                var region = RegionEndpoint.GetBySystemName(config.Region);
+                using var client = new AmazonS3Client(config.AccessKey, config.SecretKey, region);
+                var fileName = Path.GetFileName(filePath);
+                var key = $"photobooth/{DateTime.UtcNow:yyyyMMdd}/{DateTime.UtcNow:HHmmss}_{Path.GetFileNameWithoutExtension(fileName)}{Path.GetExtension(fileName)}";
+                var putRequest = new PutObjectRequest
+                {
+                    BucketName = config.Bucket,
+                    Key = key,
+                    FilePath = filePath,
+                    ContentType = Path.GetExtension(filePath).ToLowerInvariant() switch { ".png" => "image/png", ".gif" => "image/gif", _ => "image/jpeg" },
+                };
+                await client.PutObjectAsync(putRequest).ConfigureAwait(false);
+                var preSignedRequest = new GetPreSignedUrlRequest
+                {
+                    BucketName = config.Bucket,
+                    Key = key,
+                    Expires = DateTime.UtcNow.AddHours(24),
+                };
+                var url = client.GetPreSignedURL(preSignedRequest);
+                return (url, null);
+            }
+            catch (Exception ex)
+            {
+                return (null, ex.Message);
+            }
         }
 
         /// <summary>POST JSON 到上傳 API（與 Vue 的 PHP upload.php 格式一致），回傳 (url, videoUrl, error)。</summary>

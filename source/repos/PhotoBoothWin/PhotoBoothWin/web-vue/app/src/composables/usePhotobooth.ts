@@ -150,6 +150,13 @@ const qrDisplayText = computed(() => {
   return ''
 })
 
+/** 是否顯示 QR code（VITE_QRCODE_ENABLED=0 或 false 時隱藏，預設 1） */
+const showQrCode = computed(() => {
+  const v = import.meta.env.VITE_QRCODE_ENABLED
+  if (v === '0' || String(v).toLowerCase() === 'false') return false
+  return true
+})
+
 const TEST_IMAGE_BASE = '/assets/templates/test'
 async function setCaptureResultsFromTestImages() {
   // 標記為測試模式
@@ -546,43 +553,45 @@ export function usePhotobooth() {
         sizeKey: tpl.sizeKey ?? '4x6',
       }).catch(() => {})
 
-      const basePage = typeof import.meta.env.VITE_DOWNLOAD_PAGE_BASE_URL === 'string' && import.meta.env.VITE_DOWNLOAD_PAGE_BASE_URL
-        ? import.meta.env.VITE_DOWNLOAD_PAGE_BASE_URL.replace(/\/$/, '')
-        : ''
+      if (showQrCode.value) {
+        const basePage = typeof import.meta.env.VITE_DOWNLOAD_PAGE_BASE_URL === 'string' && import.meta.env.VITE_DOWNLOAD_PAGE_BASE_URL
+          ? import.meta.env.VITE_DOWNLOAD_PAGE_BASE_URL.replace(/\/$/, '')
+          : ''
 
-      // 上傳完成後再進結果頁：取得圖片／影片 URL，組出帶參數的下載頁網址給 QR code
-      let imageUrl = ''
-      try {
-        const uploadRes = await callHost('upload_file', { filePath }) as { url?: string }
-        imageUrl = uploadRes?.url ?? ''
-      } catch (e) {
-        console.error('[拍貼機] 上傳合成圖失敗', e)
-      }
-      let videoUrl = ''
-      if (captureVideoBlob.value) {
-        const videoDataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.onerror = reject
-          reader.readAsDataURL(captureVideoBlob.value!)
-        })
+        // 上傳完成後再進結果頁：取得圖片／影片 URL，組出帶參數的下載頁網址給 QR code
+        let imageUrl = ''
         try {
-          const videoRes = await callHost('upload_video', { videoData: videoDataUrl }) as { url?: string }
-          videoUrl = videoRes?.url ?? ''
-          finalVideoUrl.value = videoUrl
+          const uploadRes = await callHost('upload_file', { filePath }) as { url?: string }
+          imageUrl = uploadRes?.url ?? ''
         } catch (e) {
-          console.error('[拍貼機] 上傳影片失敗', e)
+          console.error('[拍貼機] 上傳合成圖失敗', e)
         }
-      }
+        let videoUrl = ''
+        if (captureVideoBlob.value) {
+          const videoDataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(captureVideoBlob.value!)
+          })
+          try {
+            const videoRes = await callHost('upload_video', { videoData: videoDataUrl }) as { url?: string }
+            videoUrl = videoRes?.url ?? ''
+            finalVideoUrl.value = videoUrl
+          } catch (e) {
+            console.error('[拍貼機] 上傳影片失敗', e)
+          }
+        }
 
-      // 下載頁需 ?img=... 與選填 &video=...，掃 QR 才能顯示相片／影片
-      const qrUrl = basePage
-        ? `${basePage}?img=${encodeURIComponent(imageUrl)}${videoUrl ? `&video=${encodeURIComponent(videoUrl)}` : ''}`
-        : (imageUrl || 'https://example.com/download')
-      qrText.value = qrUrl
-      QRCode.toDataURL(qrUrl, { width: 600, margin: 2 })
-        .then((url) => { qrImageUrl.value = url })
-        .catch(() => { qrImageUrl.value = '' })
+        // 下載頁需 ?img=... 與選填 &video=...，掃 QR 才能顯示相片／影片
+        const qrUrl = basePage
+          ? `${basePage}?img=${encodeURIComponent(imageUrl)}${videoUrl ? `&video=${encodeURIComponent(videoUrl)}` : ''}`
+          : (imageUrl || 'https://example.com/download')
+        qrText.value = qrUrl
+        QRCode.toDataURL(qrUrl, { width: 600, margin: 2 })
+          .then((url) => { qrImageUrl.value = url })
+          .catch(() => { qrImageUrl.value = '' })
+      }
 
       showScreen('result')
 
@@ -633,6 +642,7 @@ export function usePhotobooth() {
     qrText,
     qrDisplayUrl,
     qrDisplayText,
+    showQrCode,
     autoPrint,
     isTestSession,
     templates,

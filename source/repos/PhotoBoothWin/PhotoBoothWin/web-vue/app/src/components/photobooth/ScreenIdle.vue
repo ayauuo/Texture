@@ -4,6 +4,17 @@ import SecretKeypad from '@/components/photobooth/SecretKeypad.vue'
 
 defineOptions({ name: 'ScreenIdle' })
 
+const props = withDefaults(
+  defineProps<{
+    /** 是否啟用紙鈔機或投幣器；false 時可點擊螢幕進入選版型 */
+    isPaymentsEnabled?: boolean
+  }>(),
+  { isPaymentsEnabled: true }
+)
+const emit = defineEmits<{
+  clickToStart: []
+}>()
+
 const CAROUSEL_INTERVAL_MS = 5000
 const basePath = '/assets/templates/IdlePage'
 /** 輪播圖（相對 basePath），對應 public/assets/templates/IdlePage/cover/ */
@@ -51,7 +62,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="screen screen--idle" role="region" aria-label="待機畫面">
+  <div
+    class="screen screen--idle"
+    :class="{ 'is-click-to-start': !props.isPaymentsEnabled }"
+    role="region"
+    aria-label="待機畫面"
+    @click="!props.isPaymentsEnabled && emit('clickToStart')"
+  >
     <!-- 無輪播：用第一張圖當靜態背景 -->
     <div
       v-if="!isCarousel"
@@ -72,7 +89,14 @@ onUnmounted(() => {
         }"
       />
     </div>
-    <SecretKeypad />
+    <!-- 無紙鈔機／投幣器時顯示點擊提示 -->
+    <div v-if="!props.isPaymentsEnabled" class="idle-click-hint" aria-hidden="true">
+      點擊螢幕開始
+    </div>
+    <!-- 阻止 SecretKeypad 區域的點擊冒泡，避免點擊管理熱點時誤觸進入選版型 -->
+    <div @click.stop>
+      <SecretKeypad />
+    </div>
   </div>
 </template>
 
@@ -85,6 +109,23 @@ onUnmounted(() => {
   width: 1920px;
   height: 1080px;
   overflow: hidden;
+
+  &.is-click-to-start {
+    cursor: pointer;
+  }
+}
+
+.idle-click-hint {
+  position: absolute;
+  bottom: 80px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 48px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
 }
 
 .idle-static,

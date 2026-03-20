@@ -48,7 +48,9 @@ D:\MyPhotoBooth\Prints
 
 ## 上傳 API 網址
 
-上傳圖片／影片的 API 網址可於程式目錄放 `upload_url.txt`（一行網址）覆寫，詳見 [README_上傳邏輯.md](README_上傳邏輯.md)。
+上傳圖片／影片的 API 網址可於程式目錄放 `upload_url.txt`（一行網址）覆寫，詳見 [README_上傳邏輯.md](README_上傳邏輯.md)。  
+若使用 **AWS S3** 上傳合成圖，請在 exe 同目錄放 `s3_config.txt`（格式見 `s3_config.example.txt`），該檔已加入 `.gitignore` 不會被提交。  
+QR code 下載頁基底網址與完整流程見 [README_QR下載流程.md](README_QR下載流程.md)。
 
 ## 總結
 
