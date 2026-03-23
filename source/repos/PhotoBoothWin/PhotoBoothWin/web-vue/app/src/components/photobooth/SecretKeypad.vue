@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { usePhotobooth } from '@/composables/usePhotobooth'
 import { callHost } from '@/composables/useHost'
 
 const REQUIRED_TAPS = 15
 const TAP_RESET_MS = 1500
-const PASSWORD = '1234'
+const LONG_PRESS_MS = 5000
+const PASSWORD = '9347'
 
 const tapCount = ref(0)
 const lastTapAt = ref(0)
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+
 const open = ref(false)
 const showKeypad = ref(true)
 const showMenu = ref(false)
@@ -18,26 +21,67 @@ const uploadMessage = ref('')
 
 const { showScreen, resetSession } = usePhotobooth()
 
+/** 是否啟用紙鈔機或投幣器；皆關閉時用長按，否則用連按 */
+const isPaymentsEnabled = computed(() => {
+  const bill = import.meta.env.VITE_BILL_ACCEPTOR_ENABLED
+  const coin = import.meta.env.VITE_COIN_ACCEPTOR_ENABLED
+  const billOn = bill === '1' || String(bill ?? '').toLowerCase() === 'true'
+  const coinOn = coin === '1' || String(coin ?? '').toLowerCase() === 'true'
+  return billOn || coinOn
+})
+
 function resetTap() {
   tapCount.value = 0
   lastTapAt.value = 0
 }
 
+function openSecretMenu() {
+  tapCount.value = 0
+  open.value = true
+  showKeypad.value = true
+  showMenu.value = false
+  input.value = ''
+  error.value = ''
+}
+
 function onHotspotClick() {
-  const now = Date.now()
-  if (lastTapAt.value && now - lastTapAt.value > TAP_RESET_MS) {
-    tapCount.value = 0
+  if (isPaymentsEnabled.value) {
+    // 有啟用收款：連按 15 下
+    const now = Date.now()
+    if (lastTapAt.value && now - lastTapAt.value > TAP_RESET_MS) {
+      tapCount.value = 0
+    }
+    lastTapAt.value = now
+    tapCount.value += 1
+    if (tapCount.value >= REQUIRED_TAPS) {
+      openSecretMenu()
+    }
   }
-  lastTapAt.value = now
-  tapCount.value += 1
-  if (tapCount.value >= REQUIRED_TAPS) {
-    tapCount.value = 0
-    open.value = true
-    showKeypad.value = true
-    showMenu.value = false
-    input.value = ''
-    error.value = ''
+  // 無啟用收款時由長按處理
+}
+
+function onHotspotPointerDown() {
+  if (!isPaymentsEnabled.value) {
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null
+      openSecretMenu()
+    }, LONG_PRESS_MS)
   }
+}
+
+function onHotspotPointerUp() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+function onHotspotPointerLeave() {
+  onHotspotPointerUp()
+}
+
+function onHotspotPointerCancel() {
+  onHotspotPointerUp()
 }
 
 function close() {
@@ -139,11 +183,22 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown, true)
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
 })
 </script>
 
 <template>
-  <div class="secret-hotspot" @click="onHotspotClick" />
+  <div
+    class="secret-hotspot"
+    @click="onHotspotClick"
+    @pointerdown="onHotspotPointerDown"
+    @pointerup="onHotspotPointerUp"
+    @pointerleave="onHotspotPointerLeave"
+    @pointercancel="onHotspotPointerCancel"
+  />
   <div v-if="open" class="secret-overlay" role="dialog" aria-label="管理登入">
     <!-- 密碼鍵盤 -->
     <div v-if="showKeypad" class="secret-keypad">
