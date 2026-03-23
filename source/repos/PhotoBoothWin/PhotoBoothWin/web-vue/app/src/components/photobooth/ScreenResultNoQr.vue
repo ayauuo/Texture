@@ -233,7 +233,7 @@ async function onPrint() {
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;
-  background-color: #c8e6c9;
+  background-color: #ffffff;
   padding: $spacing-5xl;
 }
 
