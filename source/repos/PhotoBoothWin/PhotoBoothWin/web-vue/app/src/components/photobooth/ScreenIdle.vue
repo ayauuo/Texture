@@ -89,10 +89,6 @@ onUnmounted(() => {
         }"
       />
     </div>
-    <!-- 無紙鈔機／投幣器時顯示點擊提示 -->
-    <div v-if="!props.isPaymentsEnabled" class="idle-click-hint" aria-hidden="true">
-      點擊螢幕開始
-    </div>
     <!-- 阻止 SecretKeypad 區域的點擊冒泡，避免點擊管理熱點時誤觸進入選版型 -->
     <div @click.stop>
       <SecretKeypad />
